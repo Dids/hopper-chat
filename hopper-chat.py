@@ -15,7 +15,6 @@ import sounddevice as sd
 import regex
 from vosk import Model, KaldiRecognizer, SetLogLevel
 import ollama
-from gpiozero import LED
 
 #---------------------------------------------------------------------------------------------------
 # Classes
@@ -287,7 +286,7 @@ def start_tts_thread(tts_q, sound_q):
             sound_q.put(wav)
         time.sleep(0.1)
 
-def start_sound_thread(sound_q, sound_semaphore, servo_notify):
+def start_sound_thread(sound_q, sound_semaphore):
     """
     Wait for sound binary in queue, then play it through the speaker.
     """
@@ -297,19 +296,14 @@ def start_sound_thread(sound_q, sound_semaphore, servo_notify):
             if wav is None:
                 sound_semaphore.release()
                 continue
-            servo_notify.on()
             sd.play(wav, samplerate=AUDIO_OUTPUT_SAMPLE_RATE, device=AUDIO_OUTPUT_INDEX)
             sd.wait()
-            servo_notify.off()
         time.sleep(0.1)
 
 #---------------------------------------------------------------------------------------------------
 # Main
 
 def main():
-
-    # Servo notify pin
-    servo_notify = LED(SERVO_NOTIFY_PIN)
 
     try:
 
@@ -338,7 +332,7 @@ def main():
             tts_thread.start()
             sound_thread = threading.Thread(
                 target=start_sound_thread, 
-                args=(sound_q, sound_semaphore, servo_notify)
+                args=(sound_q, sound_semaphore)
             )
             sound_thread.start()
 
@@ -356,8 +350,6 @@ def main():
     # Make sure to free up GPIO resources
     except KeyboardInterrupt:
         print("Main program stopped")
-    finally:
-        servo_notify.close()
 
 #---------------------------------------------------------------------------------------------------
 # Settings
@@ -405,7 +397,8 @@ NOTIFICATION_PATH = config.get(
     "NOTIFICATION_PATH",
     fallback="./sounds/cowbell.wav"
 ).strip('"')
-SERVER_IP = config.get("settings", "SERVER_IP", fallback="127.0.0.1").strip('"')
+SERVER_LLM_IP = config.get("settings", "SERVER_LLM_IP", fallback="127.0.0.1").strip('"')
+SERVER_TTS_IP = config.get("settings", "SERVER_TTS_IP", fallback="127.0.0.1").strip('"')
 CHAT_MAX_HISTORY = config.getint("settings", "CHAT_MAX_HISTORY", fallback=20)
 CHAT_MAX_REPLY_SENTENCES = config.getint("settings", "CHAT_MAX_REPLY_SENTENCES", fallback=0)
 OLLAMA_SERVER_PORT = config.getint("settings", "OLLAMA_SERVER_PORT", fallback=10802)
@@ -424,11 +417,10 @@ ACTION_CLEAR_HISTORY = parse_config_list(
 ACTION_STOP = parse_config_list(
     config.get("settings", "ACTION_STOP", fallback=["nevermind"])
 )
-SERVO_NOTIFY_PIN = config.getint("settings", "SERVO_NOTIFY_PIN", fallback=18)
 
 # Construct server URL strings
-OLLAMA_SERVER_URL = f"http://{SERVER_IP}:{OLLAMA_SERVER_PORT}"
-PIPER_URL = f"http://{SERVER_IP}:{PIPER_SERVER_PORT}"
+OLLAMA_SERVER_URL = f"http://{SERVER_LLM_IP}:{OLLAMA_SERVER_PORT}"
+PIPER_URL = f"http://{SERVER_TTS_IP}:{PIPER_SERVER_PORT}"
 
 #---------------------------------------------------------------------------------------------------
 # Entrypoint
@@ -436,6 +428,5 @@ PIPER_URL = f"http://{SERVER_IP}:{PIPER_SERVER_PORT}"
 if __name__ == "__main__":
     print(WELCOME_MSG)
     print(f"TTS: {TTS_ENABLE}")
-    print(f"Servo notify pin: {SERVO_NOTIFY_PIN}")
     main()
 
