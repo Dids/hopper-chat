@@ -1,11 +1,27 @@
-# Use an appropriate base image
-FROM python:3.10
+#
+# Allow build-time overrides for customizing Piper TTS on a per image basis.
+# Voices: https://github.com/rhasspy/piper/blob/master/VOICES.md
+#
+ARG PIPER_VERSION="v1.0.0"
+ARG PIPER_SPEAKER_LANGUAGE="en"
+ARG PIPER_SPEAKER_LANGUAGE_CODE="en_US"
+ARG PIPER_SPEAKER_NAME="hfc_female"
+ARG PIPER_SPEAKER_QUALITY="medium"
 
-# Set the working directory
+#
+# Use an appropriate base image.
+#
+FROM python:3.12
+
+#
+# Set the working directory.
+#
 WORKDIR /app
 
-# Install dependencies
+#
+# Install dependencies.
 # Models: https://github.com/rhasspy/piper/blob/master/VOICES.md
+#
 RUN \
     git init && \
     git remote add origin https://github.com/rhasspy/piper && \
@@ -16,11 +32,15 @@ RUN \
     python3 -m pip install -r requirements_http.txt && \
     mkdir -p /app/models/ && \
     cd /app/models/ && \
-    wget -O model.onnx https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx?download=true && \
-    wget -O model.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx.json?download=true.json
+    wget -O model.onnx "https://huggingface.co/rhasspy/piper-voices/resolve/${PIPER_VERSION}/${PIPER_SPEAKER_LANGUAGE}/${PIPER_SPEAKER_LANGUAGE_CODE}/${PIPER_SPEAKER_NAME}/${PIPER_SPEAKER_QUALITY}/${PIPER_SPEAKER_LANGUAGE_CODE}-${PIPER_SPEAKER_NAME}-${PIPER_SPEAKER_QUALITY}.onnx?download=true" && \
+    wget -O model.onnx.json "https://huggingface.co/rhasspy/piper-voices/resolve/${PIPER_VERSION}/${PIPER_SPEAKER_LANGUAGE}/${PIPER_SPEAKER_LANGUAGE_CODE}/${PIPER_SPEAKER_NAME}/${PIPER_SPEAKER_QUALITY}/${PIPER_SPEAKER_LANGUAGE_CODE}-${PIPER_SPEAKER_NAME}-${PIPER_SPEAKER_QUALITY}.onnx.json?download=true.json"
 
-# Expose the port the server will run on
+#
+# Expose the port the server will run on.
+#
 EXPOSE 10803
 
-# Command to run the server
+#
+# Command to run the server.
+#
 ENTRYPOINT ["python3", "-m", "piper.http_server", "--model", "/app/models/model.onnx", "--config", "/app/models/model.onnx.json", "--port", "10803"]
