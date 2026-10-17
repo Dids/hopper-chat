@@ -1,4 +1,4 @@
-requests==2.25.1
+requests==2.33.0
 sounddevice==0.4.6
 soundfile==0.12.1
 vosk==0.3.45
